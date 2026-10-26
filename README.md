@@ -4,7 +4,7 @@
 
 ---
 
-## 🚀 Features
+## Features
 
 * **Shortcut Arrow Removal:** Hides the small arrow overlay on shortcut icons (Shell Icon `29`).
 * **Admin Shield Removal:** Hides the UAC administrator shield overlay on shortcuts running as administrator (Shell Icon `77`).
@@ -15,7 +15,7 @@
 
 ---
 
-## 📥 Installation & Usage
+## Installation & Usage
 
 1. **Download the Release:**
    * Navigate to the **Releases** section on the right side of this repository page (or under the Releases tab).
@@ -30,7 +30,7 @@
 
 ---
 
-## 🛠️ How It Works
+## How It Works
 
 Windows manages system icon overlays using registry keys under:
 `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons`
@@ -42,7 +42,7 @@ When an overlay is hidden, the script sets the corresponding registry key to poi
 
 ---
 
-## ⚠️ Requirements
+## Requirements
 
 * **OS:** Windows 10 or Windows 11
 * **Permissions:** Administrator rights (required to modify `HKLM` registry entries)
