@@ -1,79 +1,48 @@
 # CleanIcons
 
-**One-click script to hide the shortcut arrow and the administrator shield on icons in Windows 10 and 11.**
+**CleanIcons** is a lightweight batch utility for Windows 10 and Windows 11 designed to remove or restore desktop shortcut arrows and administrator shield overlays on icons, giving your desktop a cleaner, more minimal look.
 
-Windows draws small overlays on top of your icons: an arrow on every shortcut, and a blue-and-yellow shield on anything that needs administrator rights. CleanIcons hides either one, or both, and can bring them back whenever you want.
+---
 
-## Features
+## 🚀 Features
 
-- Hides the **shortcut arrow** and the **administrator shield**, separately or together
-- Works on **Windows 10 and Windows 11**, and detects which one you have
-- Shows the current state of each overlay
-- Restores the Windows defaults with one choice
-- Asks for administrator rights by itself, so you can just double-click it
-- Restarts Explorer and clears the icon cache so changes show right away
-- One plain `.bat` file you can read and check, with nothing to install
+* **Shortcut Arrow Removal:** Hides the small arrow overlay on shortcut icons (Shell Icon `29`).
+* **Admin Shield Removal:** Hides the UAC administrator shield overlay on shortcuts running as administrator (Shell Icon `77`).
+* **Automatic Icon Generation:** If a `blank.ico` file is missing, the script generates a transparent multi-size icon automatically via PowerShell.
+* **Icon Cache Renewal:** Automatically restarts `explorer.exe` and purges the Windows icon cache to ensure changes take effect immediately.
+* **Easy Restoration:** Easily revert changes back to Windows defaults at any time.
+* **Self-Elevating:** Automatically requests Administrator privileges if launched normally.
 
-## Usage
+---
 
-1. Download `CleanIcons.bat` (or clone this repository).
-2. Double-click it and approve the administrator prompt.
-3. Pick an option from the menu:
+## 📥 Installation & Usage
 
-| Option | Action |
-| --- | --- |
-| `1` | Remove shortcut arrows |
-| `2` | Remove administrator shield |
-| `3` | Remove both |
-| `4` | Restore shortcut arrows |
-| `5` | Restore administrator shield |
-| `6` | Restore both |
-| `7` | Exit |
+1. **Download the Release:**
+   * Navigate to the **Releases** section on the right side of this repository page (or under the Releases tab).
+   * Download the latest `.zip` file release.
 
-Explorer restarts after every change, so your taskbar and desktop will flicker and any open File Explorer windows will close. Save your work in them first.
+2. **Extract the Files:**
+   * Extract the contents of the `.zip` file to a folder of your choice on your computer.
 
-The menu shows one of three states for each overlay:
+3. **Run the Script:**
+   * Right-click `CleanIcons.bat` and select **Run as administrator** (or double-click to let it request elevated privileges).
+   * Choose an option from the menu to apply or restore overlay settings.
 
-| State | Meaning |
-| --- | --- |
-| `VISIBLE` | Windows default, nothing changed |
-| `HIDDEN` | Hidden by CleanIcons |
-| `CUSTOM` | Changed by some other tool; choosing Restore removes that change |
+---
 
-## How it works
+## 🛠️ How It Works
 
-CleanIcons writes a fully transparent icon to `C:\ProgramData\CleanIcons\blank.ico` and points the Windows overlays at it, using values under:
+Windows manages system icon overlays using registry keys under:
+`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons`
 
-```
-HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons
-```
+* **Shortcut Arrow:** Handled by string value `29`
+* **Admin Shield:** Handled by string value `77`
 
-| Value name | Overlay |
-| --- | --- |
-| `29` | Shortcut arrow |
-| `77` | Administrator shield |
+When an overlay is hidden, the script sets the corresponding registry key to point to a fully transparent `.ico` file located in `%windir%\blank.ico`. Upon restoring defaults, the registry keys are removed and the icon cache is cleared.
 
-It uses its own blank icon rather than one from a system file, because the position of built-in icons changes between Windows builds.
+---
 
-**Restore** deletes the matching registry value, so Windows goes back to its default overlay. The `CleanIcons` folder is removed once neither overlay uses it. Nothing else on your system is touched.
+## ⚠️ Requirements
 
-If you used an earlier version of this script (`OverlayOff`, `BareIcons` or `DeArrow`), CleanIcons moves you over to the new icon folder the first time it runs.
-
-## Requirements
-
-- Windows 10 or Windows 11
-- Administrator rights (the change is made under `HKEY_LOCAL_MACHINE`)
-
-## Troubleshooting
-
-- **An overlay is still visible.** Restart your PC. Some builds only reload overlays at sign-in.
-- **It came back after a Windows update.** Feature updates can reset icon settings. Run CleanIcons again.
-- **No administrator prompt appears.** Right-click `CleanIcons.bat` and choose **Run as administrator**.
-- **Administrator Protection is turned on.** On Windows 11 24H2 and 25H2 this optional setting runs administrator programs under a hidden account, so the icon cache may not be cleared. The change itself still applies; restart your PC to see it.
-- **Something went wrong.** Run the script again as administrator. If it still fails, choose a Restore option to return to the defaults.
-
-## Notes
-
-- Hiding the administrator shield only removes the **icon**. Programs that need administrator rights still ask for them, and Windows still shows the permission prompt.
-- The shield also appears on some installers and setup files, and those are cleaned up too.
-- The script edits the registry. Reading through it before running is always a good idea.
+* **OS:** Windows 10 or Windows 11
+* **Permissions:** Administrator rights (required to modify `HKLM` registry entries)

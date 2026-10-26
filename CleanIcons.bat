@@ -5,7 +5,7 @@ title CleanIcons - Remove Shortcut Arrow and Admin Shield
 :: ------------------------------------------------------------
 :: CleanIcons - hides the shortcut arrow and the administrator
 :: shield overlay on icons. Works on Windows 10 and Windows 11.
-:: Overlay 29 = shortcut arrow (uses shell32.dll,-50)
+:: Overlay 29 = shortcut arrow (uses custom blank.ico)
 :: Overlay 77 = administrator shield (uses custom blank.ico)
 :: ------------------------------------------------------------
 
@@ -28,10 +28,10 @@ exit /b 1
 
 :start
 set "KEY=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons"
-set "DIR=%ProgramData%\CleanIcons"
+set "DIR=%windir%"
 set "ICO=%DIR%\blank.ico"
-set "MARK_ICO=\CleanIcons\blank.ico"
-set "MARK_SYS=shell32.dll,-50"
+set "SRC_ICO=%~dp0blank.ico"
+set "MARK_ICO=\blank.ico"
 
 :detect
 :: --- Detect Windows version (build 22000 or higher is Windows 11) ---
@@ -96,16 +96,29 @@ call :restore_shield
 call :refresh
 goto :done
 
+:ensure_ico
+if not exist "%DIR%\" mkdir "%DIR%" >nul 2>&1
+if exist "%SRC_ICO%" (
+    copy /y "%SRC_ICO%" "%ICO%" >nul 2>&1
+) else if not exist "%ICO%" (
+    echo Creating blank icon...
+    call :makeicon
+)
+exit /b
+
 :remove_arrow
 echo.
+echo Ensuring blank.ico exists...
+call :ensure_ico
+if not exist "%ICO%" goto :failed
 echo Removing shortcut arrows...
-reg add "%KEY%" /v 29 /t REG_SZ /d "%windir%\System32\shell32.dll,-50" /f >nul || goto :failed
+reg add "%KEY%" /v 29 /t REG_SZ /d "%ICO%,0" /f >nul || goto :failed
 exit /b
 
 :remove_shield
 echo.
-echo Creating blank icon for administrator shield...
-call :makeicon
+echo Ensuring blank.ico exists...
+call :ensure_ico
 if not exist "%ICO%" goto :failed
 echo Removing administrator shield...
 reg add "%KEY%" /v 77 /t REG_SZ /d "%ICO%,0" /f >nul || goto :failed
@@ -115,6 +128,7 @@ exit /b
 echo.
 echo Restoring default shortcut arrows...
 reg delete "%KEY%" /v 29 /f >nul 2>&1
+call :cleanup
 exit /b
 
 :restore_shield
@@ -141,21 +155,20 @@ goto :menu
 set "%2=VISIBLE"
 reg query "%KEY%" /v %1 >nul 2>&1 || exit /b
 set "%2=CUSTOM"
-if "%1"=="29" reg query "%KEY%" /v 29 2>nul | find /i "%MARK_SYS%" >nul && set "%2=HIDDEN"
-if "%1"=="77" reg query "%KEY%" /v 77 2>nul | find /i "%MARK_ICO%" >nul && set "%2=HIDDEN"
+reg query "%KEY%" /v %1 2>nul | find /i "%MARK_ICO%" >nul && set "%2=HIDDEN"
 exit /b
 
-:: --- Write a transparent multi-size icon (16/24/32/48) to %ICO% for Shield ---
+:: --- Write a transparent multi-size icon (16/24/32/48) to %ICO% if source blank.ico is not found ---
 :makeicon
-if not exist "%DIR%" mkdir "%DIR%"
 powershell -NoProfile -Command "$s=16,24,32,48;$b=New-Object IO.MemoryStream;$w=New-Object IO.BinaryWriter($b);$w.Write([uint16]0);$w.Write([uint16]1);$w.Write([uint16]$s.Count);$o=6+16*$s.Count;foreach($n in $s){$m=[int][math]::Ceiling($n/32)*4;$l=40+$n*$n*4+$m*$n;$w.Write([byte]$n);$w.Write([byte]$n);$w.Write([byte]0);$w.Write([byte]0);$w.Write([uint16]1);$w.Write([uint16]32);$w.Write([uint32]$l);$w.Write([uint32]$o);$o+=$l};foreach($n in $s){$m=[int][math]::Ceiling($n/32)*4;$w.Write([uint32]40);$w.Write([int]$n);$w.Write([int](2*$n));$w.Write([uint16]1);$w.Write([uint16]32);$w.Write([uint32]0);$w.Write([uint32]0);$w.Write([int]0);$w.Write([int]0);$w.Write([uint32]0);$w.Write([uint32]0);$px=New-Object byte[] ($n*$n*4);$px[3]=1;$w.Write($px);$w.Write([byte[]](@(255)*($m*$n)))};[IO.File]::WriteAllBytes($env:ICO,$b.ToArray())"
 exit /b
 
-:: --- Delete the blank icon once overlay 77 no longer uses it ---
+:: --- Delete blank.ico once neither overlay uses it ---
 :cleanup
 set "INUSE="
+reg query "%KEY%" /v 29 2>nul | find /i "%MARK_ICO%" >nul && set "INUSE=1"
 reg query "%KEY%" /v 77 2>nul | find /i "%MARK_ICO%" >nul && set "INUSE=1"
-if not defined INUSE if exist "%DIR%" rmdir /s /q "%DIR%"
+if not defined INUSE if exist "%ICO%" del /f /q "%ICO%" >nul 2>&1
 exit /b
 
 :: --- Restart Explorer so it reloads the overlays, and clear the icon cache ---
