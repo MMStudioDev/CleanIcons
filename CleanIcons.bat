@@ -5,7 +5,8 @@ title CleanIcons - Remove Shortcut Arrow and Admin Shield
 :: ------------------------------------------------------------
 :: CleanIcons - hides the shortcut arrow and the administrator
 :: shield overlay on icons. Works on Windows 10 and Windows 11.
-:: Overlay 29 = shortcut arrow, overlay 77 = administrator shield
+:: Overlay 29 = shortcut arrow (uses shell32.dll,-50)
+:: Overlay 77 = administrator shield (uses custom blank.ico)
 :: ------------------------------------------------------------
 
 :: --- Make sure we are running as administrator ---
@@ -29,17 +30,8 @@ exit /b 1
 set "KEY=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons"
 set "DIR=%ProgramData%\CleanIcons"
 set "ICO=%DIR%\blank.ico"
-set "MARK=\CleanIcons\blank.ico"
-
-:: --- Move over from older versions of this script, if they were used ---
-set "MIGRATE="
-for %%P in (BareIcons DeArrow OverlayOff) do if exist "%ProgramData%\%%P" set "MIGRATE=1"
-if not defined MIGRATE goto :detect
-
-call :makeicon
-for %%V in (29 77) do call :repoint %%V
-for %%P in (BareIcons DeArrow OverlayOff) do if exist "%ProgramData%\%%P" rmdir /s /q "%ProgramData%\%%P"
-call :cleanup
+set "MARK_ICO=\CleanIcons\blank.ico"
+set "MARK_SYS=shell32.dll,-50"
 
 :detect
 :: --- Detect Windows version (build 22000 or higher is Windows 11) ---
@@ -78,49 +70,63 @@ if errorlevel 1 goto :opt1
 goto :menu
 
 :opt1
-set "TARGETS=29"
-goto :remove
+call :remove_arrow
+call :refresh
+goto :done
 :opt2
-set "TARGETS=77"
-goto :remove
+call :remove_shield
+call :refresh
+goto :done
 :opt3
-set "TARGETS=29 77"
-goto :remove
+call :remove_arrow
+call :remove_shield
+call :refresh
+goto :done
 :opt4
-set "TARGETS=29"
-goto :restore
+call :restore_arrow
+call :refresh
+goto :done
 :opt5
-set "TARGETS=77"
-goto :restore
+call :restore_shield
+call :refresh
+goto :done
 :opt6
-set "TARGETS=29 77"
-goto :restore
+call :restore_arrow
+call :restore_shield
+call :refresh
+goto :done
 
-:remove
+:remove_arrow
 echo.
-echo Creating blank icon...
+echo Removing shortcut arrows...
+reg add "%KEY%" /v 29 /t REG_SZ /d "%windir%\System32\shell32.dll,-50" /f >nul || goto :failed
+exit /b
+
+:remove_shield
+echo.
+echo Creating blank icon for administrator shield...
 call :makeicon
 if not exist "%ICO%" goto :failed
+echo Removing administrator shield...
+reg add "%KEY%" /v 77 /t REG_SZ /d "%ICO%,0" /f >nul || goto :failed
+exit /b
 
-echo Updating registry...
-for %%V in (%TARGETS%) do reg add "%KEY%" /v %%V /t REG_SZ /d "%ICO%,0" /f >nul || goto :failed
-
-call :refresh
+:restore_arrow
 echo.
-echo Done. Selected overlays removed.
-echo If they still appear, restart your PC.
-pause
-goto :menu
+echo Restoring default shortcut arrows...
+reg delete "%KEY%" /v 29 /f >nul 2>&1
+exit /b
 
-:restore
+:restore_shield
 echo.
-echo Restoring default overlays...
-for %%V in (%TARGETS%) do reg delete "%KEY%" /v %%V /f >nul 2>&1
+echo Restoring default administrator shield...
+reg delete "%KEY%" /v 77 /f >nul 2>&1
 call :cleanup
+exit /b
 
-call :refresh
+:done
 echo.
-echo Done. Selected overlays restored.
+echo Done. Selected overlay changes applied.
 pause
 goto :menu
 
@@ -135,36 +141,31 @@ goto :menu
 set "%2=VISIBLE"
 reg query "%KEY%" /v %1 >nul 2>&1 || exit /b
 set "%2=CUSTOM"
-reg query "%KEY%" /v %1 2>nul | find /i "%MARK%" >nul && set "%2=HIDDEN"
+if "%1"=="29" reg query "%KEY%" /v 29 2>nul | find /i "%MARK_SYS%" >nul && set "%2=HIDDEN"
+if "%1"=="77" reg query "%KEY%" /v 77 2>nul | find /i "%MARK_ICO%" >nul && set "%2=HIDDEN"
 exit /b
 
-:: --- Write a fully transparent 16x16 icon to %ICO% ---
+:: --- Write a transparent multi-size icon (16/24/32/48) to %ICO% for Shield ---
 :makeicon
 if not exist "%DIR%" mkdir "%DIR%"
-powershell -NoProfile -Command "$h=[byte[]](0,0,1,0,1,0,16,16,0,0,1,0,32,0,104,4,0,0,22,0,0,0); $d=[byte[]](40,0,0,0,16,0,0,0,32,0,0,0,1,0,32,0)+(New-Object byte[] 24); $z=New-Object byte[] 1024; $m=[byte[]](@(255)*64); [IO.File]::WriteAllBytes($env:ICO,[byte[]]($h+$d+$z+$m))"
+powershell -NoProfile -Command "$s=16,24,32,48;$b=New-Object IO.MemoryStream;$w=New-Object IO.BinaryWriter($b);$w.Write([uint16]0);$w.Write([uint16]1);$w.Write([uint16]$s.Count);$o=6+16*$s.Count;foreach($n in $s){$m=[int][math]::Ceiling($n/32)*4;$l=40+$n*$n*4+$m*$n;$w.Write([byte]$n);$w.Write([byte]$n);$w.Write([byte]0);$w.Write([byte]0);$w.Write([uint16]1);$w.Write([uint16]32);$w.Write([uint32]$l);$w.Write([uint32]$o);$o+=$l};foreach($n in $s){$m=[int][math]::Ceiling($n/32)*4;$w.Write([uint32]40);$w.Write([int]$n);$w.Write([int](2*$n));$w.Write([uint16]1);$w.Write([uint16]32);$w.Write([uint32]0);$w.Write([uint32]0);$w.Write([int]0);$w.Write([int]0);$w.Write([uint32]0);$w.Write([uint32]0);$px=New-Object byte[] ($n*$n*4);$px[3]=1;$w.Write($px);$w.Write([byte[]](@(255)*($m*$n)))};[IO.File]::WriteAllBytes($env:ICO,$b.ToArray())"
 exit /b
 
-:: --- Point a value that used an older version's icon at the current one ---
-:repoint
-for %%P in (BareIcons DeArrow OverlayOff) do reg query "%KEY%" /v %1 2>nul | find /i "ProgramData\%%P" >nul && reg add "%KEY%" /v %1 /t REG_SZ /d "%ICO%,0" /f >nul
-exit /b
-
-:: --- Delete the blank icon once nothing uses it any more ---
+:: --- Delete the blank icon once overlay 77 no longer uses it ---
 :cleanup
 set "INUSE="
-for %%V in (29 77) do reg query "%KEY%" /v %%V 2>nul | find /i "%MARK%" >nul && set "INUSE=1"
+reg query "%KEY%" /v 77 2>nul | find /i "%MARK_ICO%" >nul && set "INUSE=1"
 if not defined INUSE if exist "%DIR%" rmdir /s /q "%DIR%"
 exit /b
 
 :: --- Restart Explorer so it reloads the overlays, and clear the icon cache ---
 :refresh
-echo Restarting Explorer and clearing the icon cache...
+echo Restarting Explorer and clearing icon cache...
 taskkill /f /im explorer.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
 attrib -h -s -r "%localappdata%\IconCache.db" >nul 2>&1
 del /f /q "%localappdata%\IconCache.db" >nul 2>&1
 del /f /q "%localappdata%\Microsoft\Windows\Explorer\iconcache*" >nul 2>&1
-:: Windows normally brings Explorer back by itself (without admin rights).
-:: Only start it by hand if that did not happen.
-timeout /t 4 /nobreak >nul
+timeout /t 2 /nobreak >nul
 tasklist /fi "imagename eq explorer.exe" 2>nul | find /i "explorer.exe" >nul || start "" explorer.exe
 exit /b
