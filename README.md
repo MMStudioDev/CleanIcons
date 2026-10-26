@@ -46,3 +46,4 @@ When an overlay is hidden, the script sets the corresponding registry key to poi
 
 * **OS:** Windows 10 or Windows 11
 * **Permissions:** Administrator rights (required to modify `HKLM` registry entries)
+## Built with love ❤️
